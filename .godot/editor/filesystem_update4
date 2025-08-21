@@ -1,0 +1,6 @@
+res://scripts/ChessEngine.cs
+res://main.tscn
+res://Chess/Core/Board.cs
+res://scripts/PerftDebugger.cs
+res://Chess/Scripts/Main.cs
+res://Chess/Core/MoveGenerator.cs

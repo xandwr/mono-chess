@@ -1,0 +1,17 @@
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\bin\Debug\MonoChess.deps.json
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\bin\Debug\MonoChess.runtimeconfig.json
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\bin\Debug\MonoChess.dll
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\bin\Debug\MonoChess.pdb
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\bin\Debug\GodotSharp.dll
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\bin\Debug\GodotSharpEditor.dll
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\obj\Debug\MonoChess.csproj.AssemblyReference.cache
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\obj\Debug\MonoChess.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\obj\Debug\MonoChess.AssemblyInfoInputs.cache
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\obj\Debug\MonoChess.AssemblyInfo.cs
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\obj\Debug\MonoChess.csproj.CoreCompileInputs.cache
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\obj\Debug\MonoChess.csproj.Up2Date
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\obj\Debug\MonoChess.dll
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\obj\Debug\refint\MonoChess.dll
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\obj\Debug\MonoChess.pdb
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\obj\Debug\MonoChess.genruntimeconfig.cache
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\obj\Debug\ref\MonoChess.dll

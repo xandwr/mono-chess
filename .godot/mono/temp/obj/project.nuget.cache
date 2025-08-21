@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "XNYn4+mhq/8=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\ajame\\Documents\\Projects\\monochess\\MonoChess.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\ajame\\.nuget\\packages\\godot.sourcegenerators\\4.4.1\\godot.sourcegenerators.4.4.1.nupkg.sha512",
+    "C:\\Users\\ajame\\.nuget\\packages\\godotsharp\\4.4.1\\godotsharp.4.4.1.nupkg.sha512",
+    "C:\\Users\\ajame\\.nuget\\packages\\godotsharpeditor\\4.4.1\\godotsharpeditor.4.4.1.nupkg.sha512"
+  ],
+  "logs": []
+}
