@@ -15,3 +15,4 @@ C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\obj\Debug\refint\Mo
 C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\obj\Debug\MonoChess.pdb
 C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\obj\Debug\MonoChess.genruntimeconfig.cache
 C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\obj\Debug\ref\MonoChess.dll
+C:\Users\ajame\Documents\Projects\monochess\.godot\mono\temp\obj\Debug\MonoChess.sourcelink.json
