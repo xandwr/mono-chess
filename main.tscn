@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://bo0gqkfk2qo71"]
+[gd_scene load_steps=4 format=3 uid="uid://bo0gqkfk2qo71"]
 
-[ext_resource type="Script" uid="uid://8nj2n3jlj8dl" path="res://Chess/Scripts/Main.cs" id="1_ig7tw"]
 [ext_resource type="Script" uid="uid://pywgs1gprfoo" path="res://Chess/GUI/BoardView.cs" id="2_0xm2m"]
+[ext_resource type="AudioStream" uid="uid://64tjv5dc6e7m" path="res://Sounds/Move.mp3" id="3_1bvp3"]
+[ext_resource type="AudioStream" uid="uid://cw5ldrq8ei21i" path="res://Sounds/Capture.mp3" id="4_lquwl"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -10,7 +11,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("1_ig7tw")
 
 [node name="BoardView" type="Control" parent="."]
 custom_minimum_size = Vector2(720, 720)
@@ -26,3 +26,9 @@ LightSquareColor = Color(0.940755, 0.814254, 0.630551, 1)
 DarkSquareColor = Color(0.601835, 0.447026, 0.293281, 1)
 BorderColor = Color(0.306259, 0.181316, 0.103851, 1)
 metadata/_edit_use_anchors_ = true
+
+[node name="MoveSound" type="AudioStreamPlayer" parent="BoardView"]
+stream = ExtResource("3_1bvp3")
+
+[node name="CaptureSound" type="AudioStreamPlayer" parent="BoardView"]
+stream = ExtResource("4_lquwl")

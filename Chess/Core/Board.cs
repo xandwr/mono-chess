@@ -173,7 +173,7 @@ namespace MonoChess.Chess.Core
                 SetSquare(piece, SideToMove, fromMask);
             }
 
-            // restore captured (with your existing EP check)
+            // restore captured
             if (captured != Piece.EMPTY)
             {
                 bool wasEp = piece == Piece.PAWN && captured == Piece.PAWN && to == state.EnPassantSquare;
@@ -214,7 +214,7 @@ namespace MonoChess.Chess.Core
                 if (from == 63) CastlingRights &= 0b0111;  // h8 rook moved
             }
 
-            // If capturing opponent’s rook on initial square → remove their right
+            // If capturing opponent’s rook on initial square, remove their right
             if (to == 0) CastlingRights &= 0b1110;
             if (to == 7) CastlingRights &= 0b1101;
             if (to == 56) CastlingRights &= 0b1011;
