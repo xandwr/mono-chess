@@ -5,401 +5,438 @@ using System.Linq;
 
 namespace MonoChess.Chess.GUI
 {
-    public partial class BoardView : Control
-    {
-        private Board board;
-        private Vector2 squareSize = new Vector2(80, 80);
-        private Vector2 boardOffset = new Vector2(40, 40);
+	[Tool]
+	public partial class BoardView : Control
+	{
+		private Board board;
+		private Vector2 squareSize = new Vector2(100, 100);
+		private Vector2 boardOffset = new Vector2(0, 0);
 
-        // Colors for the board squares
-        private Color lightSquareColor = new Color(0.93f, 0.93f, 0.82f); // Light cream
-        private Color darkSquareColor = new Color(0.72f, 0.53f, 0.04f);  // Dark brown
-        private Color highlightColor = new Color(1.0f, 1.0f, 0.0f, 0.6f); // Yellow highlight
-        private Color validMoveColor = new Color(0.0f, 1.0f, 0.0f, 0.4f); // Green for valid moves
-        private Color lastMoveColor = new Color(0.0f, 0.5f, 1.0f, 0.4f);  // Blue for last move
+		// Colors for the board squares - exported for editor customization
+		[Export]
+		public Color LightSquareColor
+		{
+			get => lightSquareColor;
+			set
+			{
+				lightSquareColor = value;
+				QueueRedraw(); // Auto-refresh in editor
+			}
+		}
+		private Color lightSquareColor = new Color(0.93f, 0.93f, 0.82f); // Light cream
 
-        // Piece textures
-        private Dictionary<string, Texture2D> pieceTextures = new Dictionary<string, Texture2D>();
+		[Export]
+		public Color DarkSquareColor
+		{
+			get => darkSquareColor;
+			set
+			{
+				darkSquareColor = value;
+				QueueRedraw(); // Auto-refresh in editor
+			}
+		}
+		private Color darkSquareColor = new Color(0.72f, 0.53f, 0.04f);  // Dark brown
+		private Color highlightColor = new Color(1.0f, 1.0f, 0.0f, 0.6f); // Yellow highlight
+		private Color validMoveColor = new Color(0.0f, 1.0f, 0.0f, 0.4f); // Green for valid moves
+		private Color lastMoveColor = new Color(0.0f, 0.5f, 1.0f, 0.4f);  // Blue for last move
 
-        // Dragging state
-        private bool isDragging = false;
-        private int draggedFromSquare = -1;
-        private Vector2 dragOffset;
-        private List<int> validMoves = new List<int>();
-        private int lastMoveFrom = -1;
-        private int lastMoveTo = -1;
+		// Piece textures
+		private Dictionary<string, Texture2D> pieceTextures = new Dictionary<string, Texture2D>();
 
-        // UI state
-        private int selectedSquare = -1;
+		// Dragging state
+		private bool isDragging = false;
+		private int draggedFromSquare = -1;
+		private Vector2 dragOffset;
+		private List<int> validMoves = new List<int>();
+		private int lastMoveFrom = -1;
+		private int lastMoveTo = -1;
 
-        public override void _Ready()
-        {
-            board = new Board();
-            LoadPieceTextures();
-            SetCustomMinimumSize(new Vector2(720, 720));
-        }
+		// UI state
+		private int selectedSquare = -1;
 
-        private void LoadPieceTextures()
-        {
-            string[] colors = { "w", "b" };
-            string[] pieces = { "P", "N", "B", "R", "Q", "K" };
+		public override void _Ready()
+		{
+			board = new Board();
+			LoadPieceTextures();
+			SetCustomMinimumSize(new Vector2(720, 720));
+		}
 
-            foreach (string color in colors)
-            {
-                foreach (string piece in pieces)
-                {
-                    string key = $"{color}{piece}";
-                    string path = $"res://Textures/Pieces/{key}.png";
+		private void LoadPieceTextures()
+		{
+			string[] colors = { "w", "b" };
+			string[] pieces = { "P", "N", "B", "R", "Q", "K" };
 
-                    if (ResourceLoader.Exists(path))
-                    {
-                        pieceTextures[key] = GD.Load<Texture2D>(path);
-                    }
-                    else
-                    {
-                        GD.PrintErr($"Missing piece texture: {path}");
-                    }
-                }
-            }
-        }
+			foreach (string color in colors)
+			{
+				foreach (string piece in pieces)
+				{
+					string key = $"{color}{piece}";
+					string path = $"res://Textures/Pieces/{key}.png";
 
-        public override void _Draw()
-        {
-            DrawBoard();
-            DrawHighlights();
-            DrawPieces();
-        }
+					if (ResourceLoader.Exists(path))
+					{
+						pieceTextures[key] = GD.Load<Texture2D>(path);
+					}
+					else
+					{
+						GD.PrintErr($"Missing piece texture: {path}");
+					}
+				}
+			}
+		}
 
-        private void DrawBoard()
-        {
-            // Draw the 8x8 board
-            for (int rank = 0; rank < 8; rank++)
-            {
-                for (int file = 0; file < 8; file++)
-                {
-                    Vector2 pos = GetSquarePosition(rank * 8 + file);
-                    Color color = (rank + file) % 2 == 0 ? lightSquareColor : darkSquareColor;
-                    DrawRect(new Rect2(pos, squareSize), color);
-                }
-            }
+		public override void _Draw()
+		{
+			if (board == null || pieceTextures.Count == 0)
+				return;
 
-            // Draw board border
-            DrawRect(new Rect2(boardOffset - Vector2.One * 2, squareSize * 8 + Vector2.One * 4), Colors.Black, false, 2);
-        }
+			DrawBoard();
 
-        private void DrawHighlights()
-        {
-            // Draw last move highlight
-            if (lastMoveFrom >= 0)
-            {
-                Vector2 fromPos = GetSquarePosition(lastMoveFrom);
-                DrawRect(new Rect2(fromPos, squareSize), lastMoveColor);
-            }
-            if (lastMoveTo >= 0)
-            {
-                Vector2 toPos = GetSquarePosition(lastMoveTo);
-                DrawRect(new Rect2(toPos, squareSize), lastMoveColor);
-            }
+			// Only draw highlights and pieces when not in editor
+			if (!Engine.IsEditorHint())
+			{
+				DrawHighlights();
+				DrawPieces();
+			}
+		}
 
-            // Draw selected square highlight
-            if (selectedSquare >= 0)
-            {
-                Vector2 pos = GetSquarePosition(selectedSquare);
-                DrawRect(new Rect2(pos, squareSize), highlightColor);
-            }
+		private void DrawBoard()
+		{
+			// Draw the 8x8 board
+			for (int rank = 0; rank < 8; rank++)
+			{
+				for (int file = 0; file < 8; file++)
+				{
+					Vector2 pos = GetSquarePosition(rank * 8 + file);
+					Color color = (rank + file) % 2 == 0 ? lightSquareColor : darkSquareColor;
+					DrawRect(new Rect2(pos, squareSize), color);
+				}
+			}
 
-            // Draw valid move indicators
-            foreach (int move in validMoves)
-            {
-                int to = Move.To(move);
-                Vector2 pos = GetSquarePosition(to);
+			// Draw board border
+			DrawRect(new Rect2(boardOffset - Vector2.One * 10, squareSize * 8 + Vector2.One * 20), Colors.Black, false, 20);
+		}
 
-                // Different indicator based on whether it's a capture
-                int captured = Move.Captured(move);
-                if (captured != Piece.EMPTY)
-                {
-                    // Ring for captures
-                    DrawArc(pos + squareSize / 2, squareSize.X * 0.35f, 0, Mathf.Tau, 32, validMoveColor, 6);
-                }
-                else
-                {
-                    // Dot for empty squares
-                    DrawCircle(pos + squareSize / 2, squareSize.X * 0.15f, validMoveColor);
-                }
-            }
-        }
+		private void DrawHighlights()
+		{
+			// Draw last move highlight
+			if (lastMoveFrom >= 0)
+			{
+				Vector2 fromPos = GetSquarePosition(lastMoveFrom);
+				DrawRect(new Rect2(fromPos, squareSize), lastMoveColor);
+			}
+			if (lastMoveTo >= 0)
+			{
+				Vector2 toPos = GetSquarePosition(lastMoveTo);
+				DrawRect(new Rect2(toPos, squareSize), lastMoveColor);
+			}
 
-        private void DrawPieces()
-        {
-            for (int square = 0; square < 64; square++)
-            {
-                if (isDragging && square == draggedFromSquare)
-                    continue;
+			// Draw selected square highlight
+			if (selectedSquare >= 0)
+			{
+				Vector2 pos = GetSquarePosition(selectedSquare);
+				DrawRect(new Rect2(pos, squareSize), highlightColor);
+			}
 
-                int piece = board.GetPieceAt(square);
-                if (piece == Piece.EMPTY)
-                    continue;
+			// Draw valid move indicators
+			foreach (int move in validMoves)
+			{
+				int to = Move.To(move);
+				Vector2 pos = GetSquarePosition(to);
 
-                int color = board.IsOccupied(square, Piece.WHITE) ? Piece.WHITE : Piece.BLACK;
-                string textureKey = GetPieceTextureKey(piece, color);
+				// Different indicator based on whether it's a capture
+				int captured = Move.Captured(move);
+				if (captured != Piece.EMPTY)
+				{
+					// Ring for captures
+					DrawArc(pos + squareSize / 2, squareSize.X * 0.35f, 0, Mathf.Tau, 32, validMoveColor, 6);
+				}
+				else
+				{
+					// Dot for empty squares
+					DrawCircle(pos + squareSize / 2, squareSize.X * 0.15f, validMoveColor);
+				}
+			}
+		}
 
-                if (pieceTextures.ContainsKey(textureKey))
-                {
-                    Vector2 pos = GetSquarePosition(square);
-                    Rect2 targetRect = new Rect2(pos, squareSize);
-                    DrawTextureRect(pieceTextures[textureKey], targetRect, false); // false = keep aspect
-                }
-            }
+		private void DrawPieces()
+		{
+			if (board == null)
+				return;
 
-            // Draw dragged piece at mouse position
-            if (isDragging && draggedFromSquare >= 0)
-            {
-                int piece = board.GetPieceAt(draggedFromSquare);
-                if (piece != Piece.EMPTY)
-                {
-                    int color = board.IsOccupied(draggedFromSquare, Piece.WHITE) ? Piece.WHITE : Piece.BLACK;
-                    string textureKey = GetPieceTextureKey(piece, color);
+			for (int square = 0; square < 64; square++)
+			{
+				if (isDragging && square == draggedFromSquare)
+					continue;
 
-                    if (pieceTextures.ContainsKey(textureKey))
-                    {
-                        // Use local mouse position instead of global
-                        Vector2 mousePos = GetLocalMousePosition() - dragOffset;
-                        Rect2 targetRect = new Rect2(mousePos, squareSize);
-                        DrawTextureRect(pieceTextures[textureKey], targetRect, false);
-                    }
-                }
-            }
-        }
+				int piece = board.GetPieceAt(square);
+				if (piece == Piece.EMPTY)
+					continue;
 
-        private string GetPieceTextureKey(int piece, int color)
-        {
-            string colorStr = color == Piece.WHITE ? "w" : "b";
-            string pieceStr = piece switch
-            {
-                Piece.PAWN => "P",
-                Piece.KNIGHT => "N",
-                Piece.BISHOP => "B",
-                Piece.ROOK => "R",
-                Piece.QUEEN => "Q",
-                Piece.KING => "K",
-                _ => ""
-            };
-            return $"{colorStr}{pieceStr}";
-        }
+				int color = board.IsOccupied(square, Piece.WHITE) ? Piece.WHITE : Piece.BLACK;
+				string textureKey = GetPieceTextureKey(piece, color);
 
-        private Vector2 GetSquarePosition(int square)
-        {
-            int file = square % 8;
-            int rank = 7 - (square / 8); // Flip rank so rank 0 is at bottom
-            return boardOffset + new Vector2(file * squareSize.X, rank * squareSize.Y);
-        }
+				if (pieceTextures.ContainsKey(textureKey))
+				{
+					Vector2 pos = GetSquarePosition(square);
+					Rect2 targetRect = new Rect2(pos, squareSize);
+					DrawTextureRect(pieceTextures[textureKey], targetRect, false); // false = keep aspect
+				}
+			}
 
-        private int GetSquareFromPosition(Vector2 pos)
-        {
-            Vector2 relative = pos - boardOffset;
-            if (relative.X < 0 || relative.Y < 0 || relative.X >= squareSize.X * 8 || relative.Y >= squareSize.Y * 8)
-                return -1;
+			// Draw dragged piece at mouse position
+			if (isDragging && draggedFromSquare >= 0)
+			{
+				int piece = board.GetPieceAt(draggedFromSquare);
+				if (piece != Piece.EMPTY)
+				{
+					int color = board.IsOccupied(draggedFromSquare, Piece.WHITE) ? Piece.WHITE : Piece.BLACK;
+					string textureKey = GetPieceTextureKey(piece, color);
 
-            int file = (int)(relative.X / squareSize.X);
-            int rank = 7 - (int)(relative.Y / squareSize.Y); // Flip rank
+					if (pieceTextures.ContainsKey(textureKey))
+					{
+						// Use local mouse position instead of global
+						Vector2 mousePos = GetLocalMousePosition() - dragOffset;
+						Rect2 targetRect = new Rect2(mousePos, squareSize);
+						DrawTextureRect(pieceTextures[textureKey], targetRect, false);
+					}
+				}
+			}
+		}
 
-            if (file < 0 || file > 7 || rank < 0 || rank > 7)
-                return -1;
+		private string GetPieceTextureKey(int piece, int color)
+		{
+			string colorStr = color == Piece.WHITE ? "w" : "b";
+			string pieceStr = piece switch
+			{
+				Piece.PAWN => "P",
+				Piece.KNIGHT => "N",
+				Piece.BISHOP => "B",
+				Piece.ROOK => "R",
+				Piece.QUEEN => "Q",
+				Piece.KING => "K",
+				_ => ""
+			};
+			return $"{colorStr}{pieceStr}";
+		}
 
-            return rank * 8 + file;
-        }
+		private Vector2 GetSquarePosition(int square)
+		{
+			int file = square % 8;
+			int rank = 7 - (square / 8); // Flip rank so rank 0 is at bottom
+			return boardOffset + new Vector2(file * squareSize.X, rank * squareSize.Y);
+		}
 
-        public override void _GuiInput(InputEvent @event)
-        {
-            if (@event is InputEventMouseButton mouseButton)
-            {
-                HandleMouseButton(mouseButton);
-            }
-            else if (@event is InputEventMouseMotion mouseMotion)
-            {
-                HandleMouseMotion(mouseMotion);
-            }
-        }
+		private int GetSquareFromPosition(Vector2 pos)
+		{
+			Vector2 relative = pos - boardOffset;
+			if (relative.X < 0 || relative.Y < 0 || relative.X >= squareSize.X * 8 || relative.Y >= squareSize.Y * 8)
+				return -1;
 
-        private void HandleMouseButton(InputEventMouseButton mouseButton)
-        {
-            int square = GetSquareFromPosition(mouseButton.Position);
+			int file = (int)(relative.X / squareSize.X);
+			int rank = 7 - (int)(relative.Y / squareSize.Y); // Flip rank
 
-            if (mouseButton.ButtonIndex == MouseButton.Left)
-            {
-                if (mouseButton.Pressed)
-                {
-                    // Mouse down
-                    if (square >= 0)
-                    {
-                        int piece = board.GetPieceAt(square);
-                        if (piece != Piece.EMPTY && board.IsOccupied(square, board.SideToMove))
-                        {
-                            // Start dragging our own piece
-                            StartDrag(square, mouseButton.Position);
-                        }
-                        else if (selectedSquare >= 0)
-                        {
-                            // Try to move selected piece
-                            TryMove(selectedSquare, square);
-                        }
-                    }
-                }
-                else
-                {
-                    // Mouse up
-                    if (isDragging)
-                    {
-                        EndDrag(mouseButton.Position);
-                    }
-                }
-            }
-        }
+			if (file < 0 || file > 7 || rank < 0 || rank > 7)
+				return -1;
 
-        private void HandleMouseMotion(InputEventMouseMotion mouseMotion)
-        {
-            if (isDragging)
-            {
-                QueueRedraw(); // Redraw to update dragged piece position
-            }
-        }
+			return rank * 8 + file;
+		}
 
-        private void StartDrag(int square, Vector2 mousePos)
-        {
-            isDragging = true;
-            draggedFromSquare = square;
-            selectedSquare = square;
+		public override void _GuiInput(InputEvent @event)
+		{
+			// Only handle input when not in editor
+			if (Engine.IsEditorHint())
+				return;
 
-            // Use local coordinates for offset
-            Vector2 squarePos = GetSquarePosition(square);
-            dragOffset = mousePos - squarePos;
+			if (@event is InputEventMouseButton mouseButton)
+			{
+				HandleMouseButton(mouseButton);
+			}
+			else if (@event is InputEventMouseMotion mouseMotion)
+			{
+				HandleMouseMotion(mouseMotion);
+			}
+		}
 
-            GenerateValidMovesFromSquare(square);
-            QueueRedraw();
-        }
+		private void HandleMouseButton(InputEventMouseButton mouseButton)
+		{
+			int square = GetSquareFromPosition(mouseButton.Position);
 
-        private void EndDrag(Vector2 mousePos)
-        {
-            int targetSquare = GetSquareFromPosition(mousePos);
+			if (mouseButton.ButtonIndex == MouseButton.Left)
+			{
+				if (mouseButton.Pressed)
+				{
+					// Mouse down
+					if (square >= 0)
+					{
+						int piece = board.GetPieceAt(square);
+						if (piece != Piece.EMPTY && board.IsOccupied(square, board.SideToMove))
+						{
+							// Start dragging our own piece
+							StartDrag(square, mouseButton.Position);
+						}
+						else if (selectedSquare >= 0)
+						{
+							// Try to move selected piece
+							TryMove(selectedSquare, square);
+						}
+					}
+				}
+				else
+				{
+					// Mouse up
+					if (isDragging)
+					{
+						EndDrag(mouseButton.Position);
+					}
+				}
+			}
+		}
 
-            if (targetSquare >= 0 && targetSquare != draggedFromSquare)
-            {
-                TryMove(draggedFromSquare, targetSquare);
-            }
+		private void HandleMouseMotion(InputEventMouseMotion mouseMotion)
+		{
+			if (isDragging)
+			{
+				QueueRedraw(); // Redraw to update dragged piece position
+			}
+		}
 
-            isDragging = false;
-            draggedFromSquare = -1;
-            QueueRedraw();
-        }
+		private void StartDrag(int square, Vector2 mousePos)
+		{
+			isDragging = true;
+			draggedFromSquare = square;
+			selectedSquare = square;
 
-        private void GenerateValidMovesFromSquare(int fromSquare)
-        {
-            validMoves.Clear();
+			// Use local coordinates for offset
+			Vector2 squarePos = GetSquarePosition(square);
+			dragOffset = mousePos - squarePos;
 
-            var allMoves = MoveGenerator.Generate(board);
+			GenerateValidMovesFromSquare(square);
+			QueueRedraw();
+		}
 
-            foreach (int move in allMoves)
-            {
-                if (Move.From(move) == fromSquare)
-                {
-                    // Test if move is legal by making it and checking if king is in check
-                    board.MakeMove(move);
+		private void EndDrag(Vector2 mousePos)
+		{
+			int targetSquare = GetSquareFromPosition(mousePos);
 
-                    int mover = board.SideToMove ^ 1; // Side that just moved
-                    int kingSquare = board.KingSquare(mover);
-                    bool isLegal = kingSquare >= 0 && !MoveGenerator.IsSquareAttacked(board, kingSquare, board.SideToMove);
+			if (targetSquare >= 0 && targetSquare != draggedFromSquare)
+			{
+				TryMove(draggedFromSquare, targetSquare);
+			}
 
-                    board.UnmakeMove();
+			isDragging = false;
+			draggedFromSquare = -1;
+			QueueRedraw();
+		}
 
-                    if (isLegal)
-                    {
-                        validMoves.Add(move);
-                    }
-                }
-            }
-        }
+		private void GenerateValidMovesFromSquare(int fromSquare)
+		{
+			validMoves.Clear();
 
-        private void TryMove(int fromSquare, int toSquare)
-        {
-            // Find the move in our valid moves list
-            int moveToMake = -1;
-            var candidateMoves = validMoves.Where(m => Move.From(m) == fromSquare && Move.To(m) == toSquare).ToList();
+			var allMoves = MoveGenerator.Generate(board);
 
-            if (candidateMoves.Count == 1)
-            {
-                moveToMake = candidateMoves[0];
-            }
-            else if (candidateMoves.Count > 1)
-            {
-                // Multiple moves possible (probably pawn promotion)
-                // For now, default to queen promotion
-                moveToMake = candidateMoves.FirstOrDefault(m => Move.Promo(m) == Piece.QUEEN);
-                if (moveToMake == -1)
-                    moveToMake = candidateMoves[0];
-            }
+			foreach (int move in allMoves)
+			{
+				if (Move.From(move) == fromSquare)
+				{
+					// Test if move is legal by making it and checking if king is in check
+					board.MakeMove(move);
 
-            if (moveToMake != -1)
-            {
-                // Make the move
-                board.MakeMove(moveToMake);
+					int mover = board.SideToMove ^ 1; // Side that just moved
+					int kingSquare = board.KingSquare(mover);
+					bool isLegal = kingSquare >= 0 && !MoveGenerator.IsSquareAttacked(board, kingSquare, board.SideToMove);
 
-                // Update last move highlighting
-                lastMoveFrom = fromSquare;
-                lastMoveTo = toSquare;
+					board.UnmakeMove();
 
-                // Clear selection and valid moves
-                selectedSquare = -1;
-                validMoves.Clear();
+					if (isLegal)
+					{
+						validMoves.Add(move);
+					}
+				}
+			}
+		}
 
-                QueueRedraw();
+		private void TryMove(int fromSquare, int toSquare)
+		{
+			// Find the move in our valid moves list
+			int moveToMake = -1;
+			var candidateMoves = validMoves.Where(m => Move.From(m) == fromSquare && Move.To(m) == toSquare).ToList();
 
-                // Print move for debugging
-                GD.Print($"Move: {SquareToString(fromSquare)}{SquareToString(toSquare)}");
-            }
-            else
-            {
-                // Invalid move - clear selection
-                selectedSquare = -1;
-                validMoves.Clear();
-                QueueRedraw();
-            }
-        }
+			if (candidateMoves.Count == 1)
+			{
+				moveToMake = candidateMoves[0];
+			}
+			else if (candidateMoves.Count > 1)
+			{
+				// Multiple moves possible (probably pawn promotion)
+				// For now, default to queen promotion
+				moveToMake = candidateMoves.FirstOrDefault(m => Move.Promo(m) == Piece.QUEEN);
+				if (moveToMake == -1)
+					moveToMake = candidateMoves[0];
+			}
 
-        private string SquareToString(int square)
-        {
-            int file = square % 8;
-            int rank = square / 8;
-            return $"{(char)('a' + file)}{rank + 1}";
-        }
+			if (moveToMake != -1)
+			{
+				// Make the move
+				board.MakeMove(moveToMake);
 
-        // Public methods for external control
-        public void ResetBoard()
-        {
-            board = new Board();
-            selectedSquare = -1;
-            validMoves.Clear();
-            lastMoveFrom = -1;
-            lastMoveTo = -1;
-            isDragging = false;
-            draggedFromSquare = -1;
-            QueueRedraw();
-        }
+				// Update last move highlighting
+				lastMoveFrom = fromSquare;
+				lastMoveTo = toSquare;
 
-        public Board GetBoard()
-        {
-            return board;
-        }
+				// Clear selection and valid moves
+				selectedSquare = -1;
+				validMoves.Clear();
 
-        public void SetBoard(Board newBoard)
-        {
-            board = newBoard;
-            selectedSquare = -1;
-            validMoves.Clear();
-            lastMoveFrom = -1;
-            lastMoveTo = -1;
-            isDragging = false;
-            draggedFromSquare = -1;
-            QueueRedraw();
-        }
-    }
+				QueueRedraw();
+
+				// Print move for debugging
+				GD.Print($"Move: {SquareToString(fromSquare)}{SquareToString(toSquare)}");
+			}
+			else
+			{
+				// Invalid move - clear selection
+				selectedSquare = -1;
+				validMoves.Clear();
+				QueueRedraw();
+			}
+		}
+
+		private string SquareToString(int square)
+		{
+			int file = square % 8;
+			int rank = square / 8;
+			return $"{(char)('a' + file)}{rank + 1}";
+		}
+
+		// Public methods for external control
+		public void ResetBoard()
+		{
+			board = new Board();
+			selectedSquare = -1;
+			validMoves.Clear();
+			lastMoveFrom = -1;
+			lastMoveTo = -1;
+			isDragging = false;
+			draggedFromSquare = -1;
+			QueueRedraw();
+		}
+
+		public Board GetBoard()
+		{
+			return board;
+		}
+
+		public void SetBoard(Board newBoard)
+		{
+			board = newBoard;
+			selectedSquare = -1;
+			validMoves.Clear();
+			lastMoveFrom = -1;
+			lastMoveTo = -1;
+			isDragging = false;
+			draggedFromSquare = -1;
+			QueueRedraw();
+		}
+	}
 }
