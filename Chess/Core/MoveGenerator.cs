@@ -99,6 +99,52 @@ namespace MonoChess.Chess.Core
             }
         }
 
+        private static void GenerateCastling(Board b, int side, List<int> moves)
+        {
+            int opp = 1 - side;
+
+            if (side == Piece.WHITE)
+            {
+                int e1 = 4, f1 = 5, g1 = 6, d1 = 3, c1 = 2, b1 = 1, a1 = 0;
+
+                bool wk = (b.CastlingRights & 0b0010) != 0;
+                bool wq = (b.CastlingRights & 0b0001) != 0;
+
+                if (wk)
+                {
+                    bool empty = ((b.AllPieces & ((1UL << f1) | (1UL << g1))) == 0);
+                    bool safe = !IsSquareAttacked(b, e1, opp) && !IsSquareAttacked(b, f1, opp) && !IsSquareAttacked(b, g1, opp);
+                    if (empty && safe) moves.Add(Move.Encode(e1, g1, Piece.KING));
+                }
+                if (wq)
+                {
+                    bool empty = ((b.AllPieces & ((1UL << d1) | (1UL << c1) | (1UL << b1))) == 0);
+                    bool safe = !IsSquareAttacked(b, e1, opp) && !IsSquareAttacked(b, d1, opp) && !IsSquareAttacked(b, c1, opp);
+                    if (empty && safe) moves.Add(Move.Encode(e1, c1, Piece.KING));
+                }
+            }
+            else
+            {
+                int e8 = 60, f8 = 61, g8 = 62, d8 = 59, c8 = 58, b8 = 57, a8 = 56;
+
+                bool bk = (b.CastlingRights & 0b1000) != 0;
+                bool bq = (b.CastlingRights & 0b0100) != 0;
+
+                if (bk)
+                {
+                    bool empty = ((b.AllPieces & ((1UL << f8) | (1UL << g8))) == 0);
+                    bool safe = !IsSquareAttacked(b, e8, opp) && !IsSquareAttacked(b, f8, opp) && !IsSquareAttacked(b, g8, opp);
+                    if (empty && safe) moves.Add(Move.Encode(e8, g8, Piece.KING));
+                }
+                if (bq)
+                {
+                    bool empty = ((b.AllPieces & ((1UL << d8) | (1UL << c8) | (1UL << b8))) == 0);
+                    bool safe = !IsSquareAttacked(b, e8, opp) && !IsSquareAttacked(b, d8, opp) && !IsSquareAttacked(b, c8, opp);
+                    if (empty && safe) moves.Add(Move.Encode(e8, c8, Piece.KING));
+                }
+            }
+        }
+
         // Generate pseudo-legal moves
         public static List<int> Generate(Board board)
         {
@@ -139,6 +185,8 @@ namespace MonoChess.Chess.Core
                 }
             }
 
+            GenerateCastling(board, side, moves);
+
             // Pawns
             ulong pawns = board.GetBitboard(Piece.PAWN, side);
             int forward = side == Piece.WHITE ? 8 : -8;
@@ -151,26 +199,31 @@ namespace MonoChess.Chess.Core
 
                 // Single push
                 int to = from + forward;
+                bool isPromoPush = (side == Piece.WHITE && to / 8 == 7) || (side == Piece.BLACK && to / 8 == 0);
                 if (to >= 0 && to < 64)
                 {
                     ulong toMask = 1UL << to;
-                    if ((occ & toMask) == 0)
+                    if ((occ & (1UL << to)) == 0)
                     {
-                        moves.Add(Move.Encode(from, to, Piece.PAWN));
-
-                        // Double push (only from rank 2 for white, rank 7 for black)
-                        if (((side == Piece.WHITE && rank == 1) || (side == Piece.BLACK && rank == 6))
-                            && (occ & toMask) == 0)
+                        if (isPromoPush)
                         {
-                            int to2 = from + 2 * forward;
-                            if (to2 >= 0 && to2 < 64)
+                            moves.Add(Move.Encode(from, to, Piece.PAWN, Piece.EMPTY, Piece.QUEEN));
+                            moves.Add(Move.Encode(from, to, Piece.PAWN, Piece.EMPTY, Piece.ROOK));
+                            moves.Add(Move.Encode(from, to, Piece.PAWN, Piece.EMPTY, Piece.BISHOP));
+                            moves.Add(Move.Encode(from, to, Piece.PAWN, Piece.EMPTY, Piece.KNIGHT));
+                        }
+                        else
+                        {
+                            moves.Add(Move.Encode(from, to, Piece.PAWN));
+
+                            // double push (unchanged)
+                            if (((side == Piece.WHITE && rank == 1) || (side == Piece.BLACK && rank == 6)))
                             {
-                                ulong toMask2 = 1UL << to2;
-                                if ((occ & toMask2) == 0)
+                                int to2 = from + 2 * forward;
+                                if (to2 >= 0 && to2 < 64 && ((occ & (1UL << to2)) == 0))
                                     moves.Add(Move.Encode(from, to2, Piece.PAWN));
                             }
                         }
-
                     }
                 }
 
@@ -190,7 +243,18 @@ namespace MonoChess.Chess.Core
                     if ((theirPieces & capMask) != 0)
                     {
                         int captured = board.GetPieceAt(capSq);
-                        moves.Add(Move.Encode(from, capSq, Piece.PAWN, captured));
+                        bool isPromoCap = (side == Piece.WHITE && capSq / 8 == 7) || (side == Piece.BLACK && capSq / 8 == 0);
+                        if (isPromoCap)
+                        {
+                            moves.Add(Move.Encode(from, capSq, Piece.PAWN, captured, Piece.QUEEN));
+                            moves.Add(Move.Encode(from, capSq, Piece.PAWN, captured, Piece.ROOK));
+                            moves.Add(Move.Encode(from, capSq, Piece.PAWN, captured, Piece.BISHOP));
+                            moves.Add(Move.Encode(from, capSq, Piece.PAWN, captured, Piece.KNIGHT));
+                        }
+                        else
+                        {
+                            moves.Add(Move.Encode(from, capSq, Piece.PAWN, captured));
+                        }
                     }
                 }
 

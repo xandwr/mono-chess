@@ -54,6 +54,7 @@ namespace MonoChess.Chess.Core
             int to = Move.To(move);
             int piece = Move.Piece(move);
             int captured = Move.Captured(move); // <-- use encoded captured, not board state
+            int promo = Move.Promo(move);
 
             ulong fromMask = 1UL << from;
             ulong toMask = 1UL << to;
@@ -85,7 +86,17 @@ namespace MonoChess.Chess.Core
 
             // move piece
             ClearSquare(piece, SideToMove, fromMask);
-            SetSquare(piece, SideToMove, toMask);
+
+            // if promotion, land the promoted piece instead of a pawn
+            if (piece == Piece.PAWN && promo != Piece.EMPTY)
+            {
+                // don't place the pawn at 'to'; directly place the promo
+                SetSquare(promo, SideToMove, toMask);
+            }
+            else
+            {
+                SetSquare(piece, SideToMove, toMask);
+            }
 
             // reset/set EP target
             EnPassantSquare = -1;
@@ -94,6 +105,23 @@ namespace MonoChess.Chess.Core
                 int fromRank = from / 8, toRank = to / 8;
                 if (Math.Abs(toRank - fromRank) == 2)
                     EnPassantSquare = (from + to) / 2;
+            }
+
+            // CASTLING rook hop
+            if (piece == Piece.KING && Math.Abs(to - from) == 2)
+            {
+                if (SideToMove == Piece.WHITE)
+                {
+                    // e1->g1 (WK): rook h1->f1 ; e1->c1 (WQ): rook a1->d1
+                    if (to == 6) { ClearSquare(Piece.ROOK, Piece.WHITE, 1UL << 7); SetSquare(Piece.ROOK, Piece.WHITE, 1UL << 5); }
+                    if (to == 2) { ClearSquare(Piece.ROOK, Piece.WHITE, 1UL << 0); SetSquare(Piece.ROOK, Piece.WHITE, 1UL << 3); }
+                }
+                else
+                {
+                    // e8->g8 (BK): rook h8->f8 ; e8->c8 (BQ): rook a8->d8
+                    if (to == 62) { ClearSquare(Piece.ROOK, Piece.BLACK, 1UL << 63); SetSquare(Piece.ROOK, Piece.BLACK, 1UL << 61); }
+                    if (to == 58) { ClearSquare(Piece.ROOK, Piece.BLACK, 1UL << 56); SetSquare(Piece.ROOK, Piece.BLACK, 1UL << 59); }
+                }
             }
 
             UpdateCastlingRights(piece, from, to);
@@ -109,6 +137,7 @@ namespace MonoChess.Chess.Core
             int to = Move.To(move);
             int piece = Move.Piece(move);
             int captured = state.CapturedPiece;
+            int promo = Move.Promo(move);
 
             // side that moved
             SideToMove ^= 1;
@@ -116,16 +145,38 @@ namespace MonoChess.Chess.Core
             ulong fromMask = 1UL << from;
             ulong toMask = 1UL << to;
 
-            // remove from 'to' and put back on 'from'
-            ClearSquare(piece, SideToMove, toMask);
-            SetSquare(piece, SideToMove, fromMask);
+            // undo king rook hop first if castling
+            if (piece == Piece.KING && Math.Abs(to - from) == 2)
+            {
+                if (SideToMove == Piece.WHITE)
+                {
+                    if (to == 6) { ClearSquare(Piece.ROOK, Piece.WHITE, 1UL << 5); SetSquare(Piece.ROOK, Piece.WHITE, 1UL << 7); }
+                    if (to == 2) { ClearSquare(Piece.ROOK, Piece.WHITE, 1UL << 3); SetSquare(Piece.ROOK, Piece.WHITE, 1UL << 0); }
+                }
+                else
+                {
+                    if (to == 62) { ClearSquare(Piece.ROOK, Piece.BLACK, 1UL << 61); SetSquare(Piece.ROOK, Piece.BLACK, 1UL << 63); }
+                    if (to == 58) { ClearSquare(Piece.ROOK, Piece.BLACK, 1UL << 59); SetSquare(Piece.ROOK, Piece.BLACK, 1UL << 56); }
+                }
+            }
 
-            // restore captured
+            // remove moved piece from 'to' and restore on 'from'
+            if (piece == Piece.PAWN && promo != Piece.EMPTY)
+            {
+                // remove promo from 'to', put pawn back on 'from'
+                ClearSquare(promo, SideToMove, toMask);
+                SetSquare(Piece.PAWN, SideToMove, fromMask);
+            }
+            else
+            {
+                ClearSquare(piece, SideToMove, toMask);
+                SetSquare(piece, SideToMove, fromMask);
+            }
+
+            // restore captured (with your existing EP check)
             if (captured != Piece.EMPTY)
             {
-                bool wasEp = piece == Piece.PAWN
-                          && captured == Piece.PAWN
-                          && to == state.EnPassantSquare;
+                bool wasEp = piece == Piece.PAWN && captured == Piece.PAWN && to == state.EnPassantSquare;
                 if (wasEp)
                 {
                     int capSq = (SideToMove == Piece.WHITE) ? to - 8 : to + 8;
