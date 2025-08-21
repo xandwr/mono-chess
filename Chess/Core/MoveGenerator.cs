@@ -105,7 +105,7 @@ namespace MonoChess.Chess.Core
 
             if (side == Piece.WHITE)
             {
-                int e1 = 4, f1 = 5, g1 = 6, d1 = 3, c1 = 2, b1 = 1, a1 = 0;
+                int e1 = 4, f1 = 5, g1 = 6, d1 = 3, c1 = 2, b1 = 1;
 
                 bool wk = (b.CastlingRights & 0b0010) != 0;
                 bool wq = (b.CastlingRights & 0b0001) != 0;
@@ -125,7 +125,7 @@ namespace MonoChess.Chess.Core
             }
             else
             {
-                int e8 = 60, f8 = 61, g8 = 62, d8 = 59, c8 = 58, b8 = 57, a8 = 56;
+                int e8 = 60, f8 = 61, g8 = 62, d8 = 59, c8 = 58, b8 = 57;
 
                 bool bk = (b.CastlingRights & 0b1000) != 0;
                 bool bq = (b.CastlingRights & 0b0100) != 0;

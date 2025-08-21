@@ -4,3 +4,7 @@ res://Chess/Core/Board.cs
 res://scripts/PerftDebugger.cs
 res://Chess/Scripts/Main.cs
 res://Chess/Core/MoveGenerator.cs
+res://Chess/GUI/BoardView.cs
+res://Scripts/board_view.gd
+res://Scripts/piece_view.gd
+res://piece_view.tscn

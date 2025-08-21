@@ -14,6 +14,12 @@ config/name="MonoChess"
 run/main_scene="uid://bo0gqkfk2qo71"
 config/features=PackedStringArray("4.4", "C#", "Forward Plus")
 
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/stretch/mode="canvas_items"
+
 [dotnet]
 
 project/assembly_name="MonoChess"
