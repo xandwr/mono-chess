@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MonoChess")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+caf505fdb32bb5cdf77e467ec554aebe1b87ebe1")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0decff7418305dc1af65c336a2512be2dd225ecf")]
 [assembly: System.Reflection.AssemblyProductAttribute("MonoChess")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MonoChess")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

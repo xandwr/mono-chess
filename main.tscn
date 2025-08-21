@@ -24,4 +24,5 @@ grow_vertical = 2
 script = ExtResource("2_0xm2m")
 LightSquareColor = Color(0.940755, 0.814254, 0.630551, 1)
 DarkSquareColor = Color(0.601835, 0.447026, 0.293281, 1)
+BorderColor = Color(0.306259, 0.181316, 0.103851, 1)
 metadata/_edit_use_anchors_ = true
