@@ -39,4 +39,4 @@ ios/
 export_presets.cfg.bak
 
 # Godot scene unique IDs (can be regenerated, not needed in git)
-**/*.uid
+*.uid
