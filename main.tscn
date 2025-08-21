@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://bo0gqkfk2qo71"]
+
+[ext_resource type="Script" uid="uid://8nj2n3jlj8dl" path="res://Chess/Scripts/Main.cs" id="1_ig7tw"]
+
+[node name="Main" type="Node"]
+script = ExtResource("1_ig7tw")
