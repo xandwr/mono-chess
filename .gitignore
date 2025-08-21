@@ -3,40 +3,5 @@
 .import/               # Auto-generated import files
 mono_crash.*           # Mono crash logs
 
-# OS-specific
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# Exported builds
-/bin/                  # Godot export output (if you use bin/ or builds/)
-*.exe
-*.dll
-*.so
-*.dylib
-*.zip
-*.tar.gz
-*.apk
-*.aab
-*.pck
-*.obb
-
-# IDE-specific (optional, adjust for what you use)
-.vscode/
-.idea/
-*.user
-*.suo
-*.userprefs
-
-# Android specific
-/android/
-.gradle/
-local.properties
-*.iml
-
-# iOS specific
-ios/
-export_presets.cfg.bak
-
 # Godot scene unique IDs (can be regenerated, not needed in git)
 *.uid
