@@ -13,6 +13,8 @@ namespace MonoChess.Chess.GUI
         [Signal] public delegate void CaptureSoundEventHandler();
         [Signal] public delegate void PlayerColorChangedEventHandler(int newPlayerColor);
         [Signal] public delegate void GameOverEventHandler(string result);
+        [Signal] public delegate void BonusChipsEarnedEventHandler(int amount);
+        [Signal] public delegate void PredictionPhaseChangedEventHandler(bool inPredictionPhase);
 
         private Board board;
         private Vector2 squareSize = new Vector2(100, 100);
@@ -72,6 +74,7 @@ namespace MonoChess.Chess.GUI
         private Color highlightColor = new Color(1.0f, 1.0f, 0.0f, 0.6f); // Yellow highlight
         private Color validMoveColor = new Color(0.0f, 1.0f, 0.0f, 0.4f); // Green for valid moves
         private Color lastMoveColor = new Color(0.0f, 0.5f, 1.0f, 0.4f);  // Blue for last move
+        private Color predictionColor = new Color(1.0f, 0.0f, 1.0f, 0.6f); // Magenta for predictions
 
         // Piece textures
         private Dictionary<string, Texture2D> pieceTextures = new Dictionary<string, Texture2D>();
@@ -87,6 +90,26 @@ namespace MonoChess.Chess.GUI
         // UI state
         private int selectedSquare = -1;
 
+        // Prediction system
+        private bool isInPredictionPhase = false;
+        private bool isPredictingDrag = false;
+        private int predictedFromSquare = -1;
+        private int predictedToSquare = -1;
+        private int predictedPiece = Piece.EMPTY;
+        private List<int> validPredictionMoves = new List<int>();
+        private bool predictionConfirmed = false;
+        private int bonusChips = 0;
+
+        // Game state tracking
+        private enum GamePhase
+        {
+            PlayerPrediction,    // Player is making prediction for AI move
+            PlayerMove,          // Player is making their own move
+            AIMove,              // AI is making its move
+            PredictionReveal     // Revealing prediction results
+        }
+        private GamePhase currentPhase = GamePhase.PlayerMove;
+
         // Audio
         private AudioStreamPlayer moveSound = null;
         private AudioStreamPlayer captureSound = null;
@@ -95,7 +118,6 @@ namespace MonoChess.Chess.GUI
         private bool aiEnabled = true; // Set to true to enable AI opponent
         private Timer aiMoveTimer;
         private bool waitingForAI = false;
-
 
         public override void _Ready()
         {
@@ -112,13 +134,34 @@ namespace MonoChess.Chess.GUI
             aiMoveTimer.OneShot = true;
             aiMoveTimer.Timeout += OnAITimerTimeout;
             AddChild(aiMoveTimer);
+
+            // Start with appropriate phase
+            DetermineInitialPhase();
+        }
+
+        private void DetermineInitialPhase()
+        {
+            if (aiEnabled && board.SideToMove != playerColor)
+            {
+                // AI's turn - start prediction phase
+                currentPhase = GamePhase.PlayerPrediction;
+                isInPredictionPhase = true;
+                EmitSignal(SignalName.PredictionPhaseChanged, true);
+            }
+            else
+            {
+                // Player's turn
+                currentPhase = GamePhase.PlayerMove;
+                isInPredictionPhase = false;
+                EmitSignal(SignalName.PredictionPhaseChanged, false);
+            }
         }
 
         private void OnAITimerTimeout()
         {
             waitingForAI = false;
 
-            if (board.SideToMove != playerColor && aiEnabled)
+            if (currentPhase == GamePhase.AIMove)
             {
                 int aiMove = SimpleAI.GetRandomMove(board);
 
@@ -149,8 +192,32 @@ namespace MonoChess.Chess.GUI
                     // Debug print
                     GD.Print($"AI Move: {SquareToString(Move.From(aiMove))}{SquareToString(Move.To(aiMove))}");
 
-                    // Check for game over after AI move
-                    CheckForGameOver();
+                    // Check prediction
+                    CheckPredictionAndAwardChips(aiMove);
+
+                    // Check for game over
+                    if (SimpleAI.IsGameOver(board))
+                    {
+                        CheckForGameOver();
+                    }
+                    else
+                    {
+                        // Move to next phase (player prediction for next AI move or player move)
+                        if (board.SideToMove == playerColor)
+                        {
+                            currentPhase = GamePhase.PlayerMove;
+                            isInPredictionPhase = false;
+                            EmitSignal(SignalName.PredictionPhaseChanged, false);
+                        }
+                        else
+                        {
+                            // Another AI turn coming up
+                            currentPhase = GamePhase.PlayerPrediction;
+                            isInPredictionPhase = true;
+                            EmitSignal(SignalName.PredictionPhaseChanged, true);
+                            ClearPrediction();
+                        }
+                    }
                 }
                 else
                 {
@@ -158,6 +225,64 @@ namespace MonoChess.Chess.GUI
                     CheckForGameOver();
                 }
             }
+        }
+
+        private void CheckPredictionAndAwardChips(int aiMove)
+        {
+            if (predictionConfirmed && predictedFromSquare >= 0 && predictedToSquare >= 0)
+            {
+                int actualFrom = Move.From(aiMove);
+                int actualTo = Move.To(aiMove);
+
+                if (actualFrom == predictedFromSquare && actualTo == predictedToSquare)
+                {
+                    // Correct prediction!
+                    bonusChips++;
+                    EmitSignal(SignalName.BonusChipsEarned, 1); // Fixed: uncommented and corrected signal name
+                    GD.Print($"Correct prediction! Earned 1 bonus chip. Total: {bonusChips}");
+                }
+                else
+                {
+                    GD.Print($"Prediction incorrect. Predicted: {SquareToString(predictedFromSquare)}->{SquareToString(predictedToSquare)}, Actual: {SquareToString(actualFrom)}->{SquareToString(actualTo)}");
+                }
+            }
+
+            ClearPrediction();
+        }
+
+        private void ClearPrediction()
+        {
+            predictedFromSquare = -1;
+            predictedToSquare = -1;
+            predictedPiece = Piece.EMPTY;
+            predictionConfirmed = false;
+            isPredictingDrag = false;
+            validPredictionMoves.Clear();
+            QueueRedraw();
+        }
+
+        public void ConfirmPrediction()
+        {
+            if (currentPhase == GamePhase.PlayerPrediction && predictedFromSquare >= 0 && predictedToSquare >= 0)
+            {
+                predictionConfirmed = true;
+                currentPhase = GamePhase.AIMove;
+                isInPredictionPhase = false;
+                EmitSignal(SignalName.PredictionPhaseChanged, false);
+
+                // Start AI move timer
+                waitingForAI = true;
+                aiMoveTimer.Start();
+
+                GD.Print($"Prediction confirmed: {SquareToString(predictedFromSquare)}->{SquareToString(predictedToSquare)}");
+            }
+        }
+
+        public int GetBonusChips() => bonusChips;
+
+        public void SpendBonusChips(int amount)
+        {
+            bonusChips = Mathf.Max(0, bonusChips - amount);
         }
 
         private void CheckForGameOver()
@@ -181,12 +306,6 @@ namespace MonoChess.Chess.GUI
 
                 GD.Print(result);
                 EmitSignal(SignalName.GameOver, result);
-            }
-            else if (aiEnabled && board.SideToMove != playerColor && !waitingForAI)
-            {
-                // Start AI move timer if it's AI's turn
-                waitingForAI = true;
-                aiMoveTimer.Start();
             }
         }
 
@@ -225,6 +344,7 @@ namespace MonoChess.Chess.GUI
             if (!Engine.IsEditorHint())
             {
                 DrawHighlights();
+                DrawPrediction();
                 DrawPieces();
             }
         }
@@ -246,8 +366,67 @@ namespace MonoChess.Chess.GUI
             DrawRect(new Rect2(boardOffset - Vector2.One * 10, squareSize * 8 + Vector2.One * 20), borderColor, false, 20);
         }
 
+        private void DrawPrediction()
+        {
+            if (!isInPredictionPhase)
+                return;
+
+            // Draw prediction move highlight
+            if (predictedFromSquare >= 0)
+            {
+                Vector2 fromPos = GetSquarePosition(predictedFromSquare);
+                DrawRect(new Rect2(fromPos, squareSize), predictionColor);
+            }
+            if (predictedToSquare >= 0)
+            {
+                Vector2 toPos = GetSquarePosition(predictedToSquare);
+                DrawRect(new Rect2(toPos, squareSize), predictionColor);
+            }
+
+            // Draw valid prediction move indicators
+            foreach (int move in validPredictionMoves)
+            {
+                int to = Move.To(move);
+                Vector2 pos = GetSquarePosition(to);
+
+                // Different indicator based on whether it's a capture
+                int captured = Move.Captured(move);
+                if (captured != Piece.EMPTY)
+                {
+                    // Ring for captures
+                    DrawArc(pos + squareSize / 2, squareSize.X * 0.35f, 0, Mathf.Tau, 32, predictionColor, 6);
+                }
+                else
+                {
+                    // Dot for empty squares
+                    DrawCircle(pos + squareSize / 2, squareSize.X * 0.15f, predictionColor);
+                }
+            }
+
+            // Draw predicted piece at destination (transparent)
+            if (predictedFromSquare >= 0 && predictedToSquare >= 0 && predictedPiece != Piece.EMPTY)
+            {
+                int opponentColor = 1 - playerColor;
+                string textureKey = GetPieceTextureKey(predictedPiece, opponentColor);
+
+                if (pieceTextures.ContainsKey(textureKey))
+                {
+                    Vector2 pos = GetSquarePosition(predictedToSquare);
+                    Rect2 targetRect = new Rect2(pos, squareSize);
+
+                    // Draw with transparency
+                    Color modulate = new Color(1.0f, 1.0f, 1.0f, 0.5f);
+                    DrawTextureRect(pieceTextures[textureKey], targetRect, false, modulate);
+                }
+            }
+        }
+
         private void DrawHighlights()
         {
+            // Don't draw normal highlights during prediction phase
+            if (isInPredictionPhase)
+                return;
+
             // Draw last move highlight
             if (lastMoveFrom >= 0)
             {
@@ -298,6 +477,10 @@ namespace MonoChess.Chess.GUI
                 if (isDragging && square == draggedFromSquare)
                     continue;
 
+                // Don't draw piece at prediction from square during prediction phase
+                if (isInPredictionPhase && isPredictingDrag && square == predictedFromSquare)
+                    continue;
+
                 int piece = board.GetPieceAt(square);
                 if (piece == Piece.EMPTY)
                     continue;
@@ -309,25 +492,41 @@ namespace MonoChess.Chess.GUI
                 {
                     Vector2 pos = GetSquarePosition(square);
                     Rect2 targetRect = new Rect2(pos, squareSize);
-                    DrawTextureRect(pieceTextures[textureKey], targetRect, false); // false = keep aspect
+                    DrawTextureRect(pieceTextures[textureKey], targetRect, false);
                 }
             }
 
-            // Draw dragged piece at mouse position
-            if (isDragging && draggedFromSquare >= 0)
+            // Draw dragged piece at mouse position (for both normal moves and predictions)
+            if ((isDragging && draggedFromSquare >= 0) || (isPredictingDrag && predictedFromSquare >= 0))
             {
-                int piece = board.GetPieceAt(draggedFromSquare);
+                int piece, color;
+
+                if (isDragging && !isInPredictionPhase)
+                {
+                    piece = board.GetPieceAt(draggedFromSquare);
+                    color = board.IsOccupied(draggedFromSquare, Piece.WHITE) ? Piece.WHITE : Piece.BLACK;
+                }
+                else if (isPredictingDrag)
+                {
+                    piece = predictedPiece;
+                    color = 1 - playerColor; // Opponent color
+                }
+                else
+                {
+                    return;
+                }
+
                 if (piece != Piece.EMPTY)
                 {
-                    int color = board.IsOccupied(draggedFromSquare, Piece.WHITE) ? Piece.WHITE : Piece.BLACK;
                     string textureKey = GetPieceTextureKey(piece, color);
 
                     if (pieceTextures.ContainsKey(textureKey))
                     {
-                        // Use local mouse position instead of global
                         Vector2 mousePos = GetLocalMousePosition() - dragOffset;
                         Rect2 targetRect = new Rect2(mousePos, squareSize);
-                        DrawTextureRect(pieceTextures[textureKey], targetRect, false);
+
+                        Color modulate = isPredictingDrag ? new Color(1.0f, 1.0f, 1.0f, 0.7f) : Color.Color8(255, 255, 255);
+                        DrawTextureRect(pieceTextures[textureKey], targetRect, false, modulate);
                     }
                 }
             }
@@ -348,7 +547,6 @@ namespace MonoChess.Chess.GUI
             };
             return $"{colorStr}{pieceStr}";
         }
-
 
         private Vector2 GetSquarePosition(int square)
         {
@@ -381,7 +579,6 @@ namespace MonoChess.Chess.GUI
             if (playerColor == Piece.BLACK)
             {
                 file = 7 - file;  // Flip files back
-                                  // rank stays as-is
             }
             else
             {
@@ -412,10 +609,6 @@ namespace MonoChess.Chess.GUI
 
         private void HandleMouseButton(InputEventMouseButton mouseButton)
         {
-            // Only allow input when it's the player's turn
-            if (board.SideToMove != playerColor)
-                return;
-
             int square = GetSquareFromPosition(mouseButton.Position);
 
             if (mouseButton.ButtonIndex == MouseButton.Left)
@@ -423,25 +616,23 @@ namespace MonoChess.Chess.GUI
                 if (mouseButton.Pressed)
                 {
                     // Mouse down
-                    if (square >= 0)
+                    if (isInPredictionPhase)
                     {
-                        int piece = board.GetPieceAt(square);
-                        if (piece != Piece.EMPTY && board.IsOccupied(square, board.SideToMove))
-                        {
-                            // Start dragging our own piece
-                            StartDrag(square, mouseButton.Position);
-                        }
-                        else if (selectedSquare >= 0)
-                        {
-                            // Try to move selected piece
-                            TryMove(selectedSquare, square);
-                        }
+                        HandlePredictionMouseDown(square, mouseButton.Position);
+                    }
+                    else if (currentPhase == GamePhase.PlayerMove && board.SideToMove == playerColor)
+                    {
+                        HandlePlayerMouseDown(square, mouseButton.Position);
                     }
                 }
                 else
                 {
                     // Mouse up
-                    if (isDragging)
+                    if (isInPredictionPhase && isPredictingDrag)
+                    {
+                        EndPredictionDrag(mouseButton.Position);
+                    }
+                    else if (isDragging)
                     {
                         EndDrag(mouseButton.Position);
                     }
@@ -449,9 +640,118 @@ namespace MonoChess.Chess.GUI
             }
         }
 
+        private void HandlePredictionMouseDown(int square, Vector2 mousePos)
+        {
+            if (square >= 0)
+            {
+                int piece = board.GetPieceAt(square);
+                int opponentColor = 1 - playerColor;
+
+                if (piece != Piece.EMPTY && board.IsOccupied(square, opponentColor))
+                {
+                    // Start predicting move for opponent's piece
+                    StartPredictionDrag(square, piece, mousePos);
+                }
+            }
+        }
+
+        private void HandlePlayerMouseDown(int square, Vector2 mousePos)
+        {
+            if (square >= 0)
+            {
+                int piece = board.GetPieceAt(square);
+                if (piece != Piece.EMPTY && board.IsOccupied(square, board.SideToMove))
+                {
+                    // Start dragging our own piece
+                    StartDrag(square, mousePos);
+                }
+                else if (selectedSquare >= 0)
+                {
+                    // Try to move selected piece
+                    TryMove(selectedSquare, square);
+                }
+            }
+        }
+
+        private void StartPredictionDrag(int square, int piece, Vector2 mousePos)
+        {
+            isPredictingDrag = true;
+            predictedFromSquare = square;
+            predictedPiece = piece;
+
+            Vector2 squarePos = GetSquarePosition(square);
+            dragOffset = mousePos - squarePos;
+
+            GenerateValidPredictionMovesFromSquare(square);
+            QueueRedraw();
+        }
+
+        private void EndPredictionDrag(Vector2 mousePos)
+        {
+            int targetSquare = GetSquareFromPosition(mousePos);
+
+            if (targetSquare >= 0 && targetSquare != predictedFromSquare)
+            {
+                // Check if this is a valid prediction move
+                bool validPrediction = validPredictionMoves.Any(m =>
+                    Move.From(m) == predictedFromSquare && Move.To(m) == targetSquare);
+
+                if (validPrediction)
+                {
+                    predictedToSquare = targetSquare;
+                    GD.Print($"Prediction set: {SquareToString(predictedFromSquare)}->{SquareToString(predictedToSquare)}");
+                }
+                else
+                {
+                    // Invalid prediction - clear it
+                    predictedFromSquare = -1;
+                    predictedPiece = Piece.EMPTY;
+                    validPredictionMoves.Clear();
+                }
+            }
+            else
+            {
+                // Didn't drop on valid square - clear prediction
+                predictedFromSquare = -1;
+                predictedPiece = Piece.EMPTY;
+                validPredictionMoves.Clear();
+            }
+
+            isPredictingDrag = false;
+            QueueRedraw();
+        }
+
+        private void GenerateValidPredictionMovesFromSquare(int fromSquare)
+        {
+            validPredictionMoves.Clear();
+
+            // Generate moves for the opponent
+            var allMoves = MoveGenerator.Generate(board);
+
+            foreach (int move in allMoves)
+            {
+                if (Move.From(move) == fromSquare)
+                {
+                    // Test if move is legal by making it and checking if king is in check
+                    board.MakeMove(move);
+
+                    int mover = board.SideToMove ^ 1; // Side that just moved
+                    int kingSquare = board.KingSquare(mover);
+                    bool isLegal = kingSquare >= 0 && !MoveGenerator.IsSquareAttacked(board, kingSquare, board.SideToMove);
+
+                    board.UnmakeMove();
+
+                    if (isLegal)
+                    {
+                        validPredictionMoves.Add(move);
+                    }
+                }
+            }
+        }
+
         private void HandleMouseMotion(InputEventMouseMotion mouseMotion)
         {
-            if (isDragging)
+            if (isDragging || isPredictingDrag)
             {
                 QueueRedraw(); // Redraw to update dragged piece position
             }
@@ -463,7 +763,6 @@ namespace MonoChess.Chess.GUI
             draggedFromSquare = square;
             selectedSquare = square;
 
-            // Use local coordinates for offset
             Vector2 squarePos = GetSquarePosition(square);
             dragOffset = mousePos - squarePos;
 
@@ -563,8 +862,23 @@ namespace MonoChess.Chess.GUI
                 // Debug print
                 GD.Print($"Player Move: {SquareToString(fromSquare)}{SquareToString(toSquare)}");
 
-                // Check for game over and potentially trigger AI move
-                CheckForGameOver();
+                // Check for game over
+                if (SimpleAI.IsGameOver(board))
+                {
+                    CheckForGameOver();
+                }
+                else
+                {
+                    // Move to next phase
+                    if (aiEnabled && board.SideToMove != playerColor)
+                    {
+                        // AI's turn - start prediction phase
+                        currentPhase = GamePhase.PlayerPrediction;
+                        isInPredictionPhase = true;
+                        EmitSignal(SignalName.PredictionPhaseChanged, true);
+                        ClearPrediction();
+                    }
+                }
             }
             else
             {
@@ -594,14 +908,9 @@ namespace MonoChess.Chess.GUI
             draggedFromSquare = -1;
             waitingForAI = false;
             aiMoveTimer.Stop();
+            ClearPrediction();
+            DetermineInitialPhase();
             QueueRedraw();
-
-            // Start AI if it plays as white
-            if (aiEnabled && playerColor == Piece.BLACK)
-            {
-                waitingForAI = true;
-                aiMoveTimer.Start();
-            }
         }
 
         public void SwitchPlayerColor()
@@ -615,12 +924,12 @@ namespace MonoChess.Chess.GUI
             draggedFromSquare = -1;
             waitingForAI = false;
             aiMoveTimer.Stop();
+            ClearPrediction();
 
             GD.Print($"Player now playing as: {(playerColor == Piece.WHITE ? "White" : "Black")}");
-            QueueRedraw();
 
-            // Check if AI should move immediately
-            CheckForGameOver();
+            DetermineInitialPhase();
+            QueueRedraw();
         }
 
         public Board GetBoard()
@@ -637,26 +946,26 @@ namespace MonoChess.Chess.GUI
             lastMoveTo = -1;
             isDragging = false;
             draggedFromSquare = -1;
+            ClearPrediction();
+            DetermineInitialPhase();
             QueueRedraw();
         }
 
         public void EnableAI(bool enabled)
         {
             aiEnabled = enabled;
-
-            if (enabled && board.SideToMove != playerColor && !waitingForAI)
-            {
-                // Start AI move if it's AI's turn
-                waitingForAI = true;
-                aiMoveTimer.Start();
-            }
-
+            DetermineInitialPhase();
             GD.Print($"AI {(enabled ? "enabled" : "disabled")}");
         }
 
         public void SetAIThinkingTime(float seconds)
         {
             aiMoveTimer.WaitTime = seconds;
+        }
+
+        public bool IsInPredictionPhase()
+        {
+            return isInPredictionPhase;
         }
     }
 }

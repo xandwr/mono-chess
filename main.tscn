@@ -1,12 +1,13 @@
-[gd_scene load_steps=8 format=3 uid="uid://bo0gqkfk2qo71"]
+[gd_scene load_steps=9 format=3 uid="uid://bo0gqkfk2qo71"]
 
 [ext_resource type="Script" uid="uid://ceu3ihogcaebh" path="res://Chess/GUI/ShopView.cs" id="1_lquwl"]
 [ext_resource type="Script" uid="uid://pywgs1gprfoo" path="res://Chess/GUI/BoardView.cs" id="2_0xm2m"]
 [ext_resource type="LabelSettings" uid="uid://dc4h3smhcu0ku" path="res://Presets/GUI/title_label_settings.tres" id="2_7mycd"]
 [ext_resource type="AudioStream" uid="uid://64tjv5dc6e7m" path="res://Sounds/Move.mp3" id="3_1bvp3"]
 [ext_resource type="LabelSettings" uid="uid://bxauslcm6dc2l" path="res://Presets/GUI/subtitle_label_settings.tres" id="3_272bh"]
-[ext_resource type="Script" uid="uid://davv0l1xuysjl" path="res://Chess/GUI/DebugPanel.cs" id="4_1bvp3"]
 [ext_resource type="AudioStream" uid="uid://cw5ldrq8ei21i" path="res://Sounds/Capture.mp3" id="4_lquwl"]
+[ext_resource type="AudioStream" uid="uid://be26p52i3dv5a" path="res://Sounds/Checkmate.mp3" id="7_272bh"]
+[ext_resource type="Script" uid="uid://dixrqa5gv2u1r" path="res://Chess/GUI/PredictionView.cs" id="8_5vw27"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -98,6 +99,9 @@ stream = ExtResource("3_1bvp3")
 [node name="CaptureSound" type="AudioStreamPlayer" parent="HBoxContainer/BoardView"]
 stream = ExtResource("4_lquwl")
 
+[node name="CheckmateSound" type="AudioStreamPlayer" parent="HBoxContainer/BoardView"]
+stream = ExtResource("7_272bh")
+
 [node name="Right" type="PanelContainer" parent="HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -109,32 +113,41 @@ theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="DebugPanel" type="VBoxContainer" parent="HBoxContainer/Right/MarginContainer"]
+[node name="PredictionView" type="VBoxContainer" parent="HBoxContainer/Right/MarginContainer"]
 layout_mode = 2
-script = ExtResource("4_1bvp3")
+script = ExtResource("8_5vw27")
 
-[node name="Label" type="Label" parent="HBoxContainer/Right/MarginContainer/DebugPanel"]
+[node name="Label" type="Label" parent="HBoxContainer/Right/MarginContainer/PredictionView"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
-text = "Debug"
+text = "Prediction"
 label_settings = ExtResource("2_7mycd")
 horizontal_alignment = 1
 vertical_alignment = 1
 uppercase = true
 
-[node name="PlayerColorLabel" type="Label" parent="HBoxContainer/Right/MarginContainer/DebugPanel"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 36
-text = "Color"
-label_settings = ExtResource("3_272bh")
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="HSeparator" type="HSeparator" parent="HBoxContainer/Right/MarginContainer/DebugPanel"]
+[node name="HSeparator" type="HSeparator" parent="HBoxContainer/Right/MarginContainer/PredictionView"]
 layout_mode = 2
 theme_override_constants/separation = 40
 
-[node name="SwitchSideButton" type="Button" parent="HBoxContainer/Right/MarginContainer/DebugPanel"]
+[node name="PhaseLabel" type="Label" parent="HBoxContainer/Right/MarginContainer/PredictionView"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 26
-text = "Switch Side"
+theme_override_font_sizes/font_size = 36
+text = "Phase"
+label_settings = ExtResource("3_272bh")
+horizontal_alignment = 1
+vertical_alignment = 1
+uppercase = true
+
+[node name="InstructionLabel" type="Label" parent="HBoxContainer/Right/MarginContainer/PredictionView"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+text = "Instructions"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+uppercase = true
+
+[node name="ConfirmPredictionButton" type="Button" parent="HBoxContainer/Right/MarginContainer/PredictionView"]
+layout_mode = 2
+text = "Confirm Prediction"

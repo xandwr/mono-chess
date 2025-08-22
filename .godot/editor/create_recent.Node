@@ -1,13 +1,13 @@
+Button
+AudioStreamPlayer
 HSeparator
 RichTextLabel
 ItemList
 MarginContainer
 Label
 VBoxContainer
-Button
 HBoxContainer
 PanelContainer
 Node
-AudioStreamPlayer
 Control
 TextureRect

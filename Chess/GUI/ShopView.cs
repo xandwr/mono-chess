@@ -1,107 +1,236 @@
 using Godot;
 using System.Collections.Generic;
+using MonoChess.Chess.GUI;
 
 namespace MonoChess.Chess.GUI
 {
-	public partial class ShopView : Control
-	{
-		private Label currencyLabel;
-		private ItemList itemList;
-		private RichTextLabel descriptionLabel;
+    public partial class ShopView : Control
+    {
+        [Signal] public delegate void ItemPurchasedEventHandler(string itemName);
 
-		private int chips = 0;
+        private Label currencyLabel;
+        private ItemList itemList;
+        private RichTextLabel descriptionLabel;
+        private BoardView boardView;
 
-		private class ShopItem
-		{
-			public string Name;
-			public int Cost;
-			public string Description;
+        private class ShopItem
+        {
+            public string Name;
+            public int Cost;
+            public string Description;
+            public System.Action OnPurchase;
 
-			public ShopItem(string name, int cost, string description)
-			{
-				Name = name;
-				Cost = cost;
-				Description = description;
-			}
-		}
+            public ShopItem(string name, int cost, string description, System.Action onPurchase = null)
+            {
+                Name = name;
+                Cost = cost;
+                Description = description;
+                OnPurchase = onPurchase;
+            }
+        }
 
-		private List<ShopItem> shopItems = new List<ShopItem>
-		{
-			new ShopItem("Find Best Move", 5, "Shows you the best move from your current position."),
-		};
+        private List<ShopItem> shopItems = new List<ShopItem>();
 
-		public override void _Ready()
-		{
-			base._Ready();
-			currencyLabel = GetNode<Label>("CurrencyLabel");
-			itemList = GetNode<ItemList>("ItemList");
-			descriptionLabel = GetNode<RichTextLabel>("DescriptionLabel");
+        public override void _Ready()
+        {
+            base._Ready();
 
-			PopulateShop();
-			UpdateCurrencyLabel();
+            currencyLabel = GetNode<Label>("CurrencyLabel");
+            itemList = GetNode<ItemList>("ItemList");
+            descriptionLabel = GetNode<RichTextLabel>("DescriptionLabel");
 
-			itemList.ItemSelected += OnItemSelected;
-			itemList.ItemActivated += OnItemActivated; // double-click to buy
-		}
+            // Find the BoardView
+            var main = GetTree().Root.GetNode<Control>("Main");
+            var mainHBox = main.GetNode<HBoxContainer>("HBoxContainer");
+            boardView = mainHBox.GetNode<BoardView>("BoardView");
 
-		private void PopulateShop()
-		{
-			itemList.Clear();
-			for (int i = 0; i < shopItems.Count; i++)
-			{
-				var item = shopItems[i];
-				itemList.AddItem($"{item.Name} - {item.Cost} chips");
-				itemList.SetItemTooltip(i, item.Description);
+            InitializeShopItems();
+            PopulateShop();
+            UpdateCurrencyLabel();
 
-				//if (chips < item.Cost)
-					//itemList.SetItemDisabled(i, true);
-			}
-		}
+            itemList.ItemSelected += OnItemSelected;
+            itemList.ItemActivated += OnItemActivated; // double-click to buy
 
-		private void UpdateCurrencyLabel()
-		{
-			currencyLabel.Text = $"Chips: {chips}";
+            // Connect to board events
+            if (boardView != null)
+            {
+                boardView.BonusChipsEarned += OnBonusChipsChanged;
+            }
+        }
 
-			for (int i = 0; i < shopItems.Count; i++)
-			{
-				var item = shopItems[i];
-				//itemList.SetItemDisabled(i, chips < item.Cost);
-			}
-		}
+        private void InitializeShopItems()
+        {
+            shopItems = new List<ShopItem>
+            {
+                new ShopItem("Reveal Best Move", 3,
+                    "Shows you the objectively best move from your current position. Can only be used during your turn.",
+                    () => RevealBestMove()),
 
-		public void AddChips(int amount)
-		{
-			chips += amount;
-			UpdateCurrencyLabel();
-		}
+                new ShopItem("Show All Legal Moves", 2,
+                    "Highlights all legal moves for all your pieces. Lasts for your entire turn.",
+                    () => ShowAllLegalMoves()),
 
-		private void OnItemSelected(long index)
-		{
-			if (index >= 0 && index < shopItems.Count)
-			{
-				var item = shopItems[(int)index];
-				descriptionLabel.Text = $"[b]{item.Name}[/b]\nCost: {item.Cost} chips\n\n{item.Description}";
-			}
-			else
-			{
-				descriptionLabel.Text = "";
-			}
-		}
+                new ShopItem("Undo Last Move", 4,
+                    "Undoes your last move and the opponent's response, letting you try a different approach.",
+                    () => UndoLastMove()),
 
-		private void OnItemActivated(long index)
-		{
-			var item = shopItems[(int)index];
-			if (chips >= item.Cost)
-			{
-				chips -= item.Cost;
-				UpdateCurrencyLabel();
-				GD.Print($"Purchased {item.Name}");
-				// TODO: Emit signal to apply effect in-game
-			}
-			else
-			{
-				GD.Print("Not enough chips!");
-			}
-		}
-	}
+                new ShopItem("Extended Thinking Time", 1,
+                    "Gives you 30 seconds of uninterrupted thinking time before the next AI move.",
+                    () => ExtendThinkingTime()),
+
+                new ShopItem("Prediction Hint", 2,
+                    "Shows which of the opponent's pieces are most likely to move next.",
+                    () => ShowPredictionHint())
+            };
+        }
+
+        private void PopulateShop()
+        {
+            itemList.Clear();
+            for (int i = 0; i < shopItems.Count; i++)
+            {
+                var item = shopItems[i];
+                string itemText = $"{item.Name} - {item.Cost} BC";
+
+                itemList.AddItem(itemText);
+                itemList.SetItemTooltip(i, item.Description);
+
+                // Disable items that cost more than current chips
+                if (GetCurrentChips() < item.Cost)
+                {
+                    itemList.SetItemDisabled(i, true);
+                }
+            }
+        }
+
+        private void UpdateCurrencyLabel()
+        {
+            int chips = GetCurrentChips();
+            currencyLabel.Text = $"Bonus Chips: {chips}";
+
+            // Update item availability
+            for (int i = 0; i < shopItems.Count; i++)
+            {
+                var item = shopItems[i];
+                itemList.SetItemDisabled(i, chips < item.Cost);
+            }
+        }
+
+        private int GetCurrentChips()
+        {
+            return boardView?.GetBonusChips() ?? 0;
+        }
+
+        private void OnBonusChipsChanged(int amount)
+        {
+            UpdateCurrencyLabel();
+        }
+
+        private void OnItemSelected(long index)
+        {
+            if (index >= 0 && index < shopItems.Count)
+            {
+                var item = shopItems[(int)index];
+                descriptionLabel.Text = $"[b]{item.Name}[/b]\nCost: {item.Cost} Bonus Chips\n\n{item.Description}";
+            }
+            else
+            {
+                descriptionLabel.Text = "";
+            }
+        }
+
+        private void OnItemActivated(long index)
+        {
+            if (index < 0 || index >= shopItems.Count) return;
+
+            var item = shopItems[(int)index];
+            int currentChips = GetCurrentChips();
+
+            if (currentChips >= item.Cost)
+            {
+                // Spend the chips
+                boardView?.SpendBonusChips(item.Cost);
+
+                // Execute the item effect
+                item.OnPurchase?.Invoke();
+
+                // Update UI
+                UpdateCurrencyLabel();
+                PopulateShop();
+
+                GD.Print($"Purchased {item.Name} for {item.Cost} BC");
+                EmitSignal(SignalName.ItemPurchased, item.Name);
+            }
+            else
+            {
+                GD.Print("Not enough bonus chips!");
+            }
+        }
+
+        // Shop item effects
+        private void RevealBestMove()
+        {
+            // This would integrate with a chess engine to show the best move
+            // For now, just show a placeholder
+            GD.Print("Best move analysis activated! (Feature needs chess engine integration)");
+
+            // You could implement this by:
+            // 1. Running a deeper search with your AI
+            // 2. Highlighting the recommended move
+            // 3. Showing evaluation numbers
+        }
+
+        private void ShowAllLegalMoves()
+        {
+            GD.Print("All legal moves highlighted! (Feature needs BoardView integration)");
+
+            // This could be implemented by:
+            // 1. Adding a "show all moves" flag to BoardView
+            // 2. Generating moves for all pieces of current player
+            // 3. Drawing highlights for all valid destinations
+        }
+
+        private void UndoLastMove()
+        {
+            // This would need integration with BoardView's move history
+            GD.Print("Undo move activated! (Feature needs move history integration)");
+
+            // Implementation would involve:
+            // 1. Storing more move history in Board class
+            // 2. Adding public undo methods to BoardView
+            // 3. Handling prediction state when undoing
+        }
+
+        private void ExtendThinkingTime()
+        {
+            GD.Print("Extended thinking time granted!");
+
+            // This could be implemented by:
+            // 1. Adding a delay before the next AI move
+            // 2. Showing a countdown timer
+            // 3. Giving player time to think during AI turn
+
+            if (boardView != null)
+            {
+                boardView.SetAIThinkingTime(5.0f); // 5 seconds instead of 1
+            }
+        }
+
+        private void ShowPredictionHint()
+        {
+            GD.Print("Prediction hint activated! (Feature needs AI evaluation integration)");
+
+            // This could show:
+            // 1. Heat map of likely move destinations
+            // 2. Highlighting pieces that are more likely to move
+            // 3. Statistical analysis of position type
+        }
+
+        // Public method to refresh shop when chips change
+        public void RefreshShop()
+        {
+            UpdateCurrencyLabel();
+            PopulateShop();
+        }
+    }
 }
