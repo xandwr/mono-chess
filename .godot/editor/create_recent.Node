@@ -1,7 +1,9 @@
-Button
+RichTextLabel
+ItemList
 MarginContainer
 Label
 VBoxContainer
+Button
 HBoxContainer
 PanelContainer
 Node

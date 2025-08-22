@@ -1,8 +1,6 @@
-using Godot;
 using MonoChess.Chess.Core;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace MonoChess.Chess.AI
 {
