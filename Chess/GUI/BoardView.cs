@@ -17,8 +17,8 @@ namespace MonoChess.Chess.GUI
         [Signal] public delegate void PredictionPhaseChangedEventHandler(bool inPredictionPhase);
 
         private Board board;
-        private Vector2 squareSize = new Vector2(100, 100);
-        private Vector2 boardOffset = new Vector2(0, 0);
+        private Vector2 squareSize = new(100, 100);
+        private Vector2 boardOffset = new(0, 0);
 
         // Player color - which color the human is playing as
         private int playerColor = Piece.WHITE; // Default to white
@@ -45,7 +45,7 @@ namespace MonoChess.Chess.GUI
                 QueueRedraw(); // Auto-refresh in editor
             }
         }
-        private Color lightSquareColor = new Color(0.93f, 0.93f, 0.82f); // Light cream
+        private Color lightSquareColor = new(0.93f, 0.93f, 0.82f); // Light cream
 
         [Export]
         public Color DarkSquareColor
@@ -57,7 +57,7 @@ namespace MonoChess.Chess.GUI
                 QueueRedraw(); // Auto-refresh in editor
             }
         }
-        private Color darkSquareColor = new Color(0.72f, 0.53f, 0.04f);  // Dark brown
+        private Color darkSquareColor = new(0.72f, 0.53f, 0.04f);  // Dark brown
 
         [Export]
         public Color BorderColor
@@ -69,21 +69,21 @@ namespace MonoChess.Chess.GUI
                 QueueRedraw(); // Auto-refresh in editor
             }
         }
-        private Color borderColor = new Color(0.72f, 0.53f, 0.04f);  // Dark brown
+        private Color borderColor = new(0.72f, 0.53f, 0.04f);  // Dark brown
 
-        private Color highlightColor = new Color(1.0f, 1.0f, 0.0f, 0.6f); // Yellow highlight
-        private Color validMoveColor = new Color(0.0f, 1.0f, 0.0f, 0.4f); // Green for valid moves
-        private Color lastMoveColor = new Color(0.0f, 0.5f, 1.0f, 0.4f);  // Blue for last move
-        private Color predictionColor = new Color(1.0f, 0.0f, 1.0f, 0.6f); // Magenta for predictions
+        private Color highlightColor = new(1.0f, 1.0f, 0.0f, 0.6f); // Yellow highlight
+        private Color validMoveColor = new(0.0f, 1.0f, 0.0f, 0.4f); // Green for valid moves
+        private Color lastMoveColor = new(0.0f, 0.5f, 1.0f, 0.4f);  // Blue for last move
+        private Color predictionColor = new(1.0f, 0.0f, 1.0f, 0.6f); // Magenta for predictions
 
         // Piece textures
-        private Dictionary<string, Texture2D> pieceTextures = new Dictionary<string, Texture2D>();
+        private readonly Dictionary<string, Texture2D> pieceTextures = [];
 
         // Dragging state
         private bool isDragging = false;
         private int draggedFromSquare = -1;
         private Vector2 dragOffset;
-        private List<int> validMoves = new List<int>();
+        private readonly List<int> validMoves = [];
         private int lastMoveFrom = -1;
         private int lastMoveTo = -1;
 
@@ -96,7 +96,7 @@ namespace MonoChess.Chess.GUI
         private int predictedFromSquare = -1;
         private int predictedToSquare = -1;
         private int predictedPiece = Piece.EMPTY;
-        private List<int> validPredictionMoves = new List<int>();
+        private readonly List<int> validPredictionMoves = [];
         private bool predictionConfirmed = false;
         private int bonusChips = 0;
 
@@ -129,9 +129,12 @@ namespace MonoChess.Chess.GUI
             captureSound = GetNode<AudioStreamPlayer>("CaptureSound");
 
             // Setup AI timer
-            aiMoveTimer = new Timer();
-            aiMoveTimer.WaitTime = 1.0f; // 1 second delay for AI moves
-            aiMoveTimer.OneShot = true;
+            aiMoveTimer = new()
+            {
+                WaitTime = 1.0f, // 1 second delay for AI moves
+                OneShot = true
+            };
+
             aiMoveTimer.Timeout += OnAITimerTimeout;
             AddChild(aiMoveTimer);
 
@@ -163,7 +166,7 @@ namespace MonoChess.Chess.GUI
 
             if (currentPhase == GamePhase.AIMove)
             {
-                int aiMove = SimpleAI.GetRandomMove(board);
+                int aiMove = SimpleAI.GetWeightedMove(board);
 
                 if (aiMove != -1)
                 {

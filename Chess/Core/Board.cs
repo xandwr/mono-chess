@@ -354,5 +354,30 @@ namespace MonoChess.Chess.Core
             }
             GD.Print("\n   a b c d e f g h\n");
         }
+
+        public bool IsCapture(int move)
+        {
+            return Move.Captured(move) != Piece.EMPTY;
+        }
+
+        public bool GivesCheck(int move)
+        {
+            // Play move virtually
+            MakeMove(move);
+            int kingSq = KingSquare(SideToMove); // side to move is now opponent
+            bool check = kingSq >= 0 && MoveGenerator.IsSquareAttacked(this, kingSq, 1 - SideToMove);
+            UnmakeMove();
+            return check;
+        }
+
+        public int GetMovingPiece(int move)
+        {
+            return Move.Piece(move);
+        }
+
+        public int GetTargetSquare(int move)
+        {
+            return Move.To(move);
+        }
     }
 }

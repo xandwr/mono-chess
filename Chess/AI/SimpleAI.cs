@@ -6,22 +6,77 @@ namespace MonoChess.Chess.AI
 {
     public static class SimpleAI
     {
-        private static Random random = new Random();
+        private static readonly Random random = new();
 
         /// <summary>
-        /// Gets a random legal move for the current position
+        /// Gets a random weighted legal move for the current position
         /// </summary>
         /// <param name="board">The current board state</param>
         /// <returns>A legal move, or -1 if no legal moves available</returns>
-        public static int GetRandomMove(Board board)
+        public static int GetWeightedMove(Board board)
         {
             var legalMoves = GetLegalMoves(board);
-
             if (legalMoves.Count == 0)
-                return -1; // No legal moves (checkmate or stalemate)
+                return -1;
 
-            int randomIndex = random.Next(legalMoves.Count);
-            return legalMoves[randomIndex];
+            // Weight each move
+            var weightedMoves = new List<(int move, int weight)>();
+
+            foreach (int move in legalMoves)
+            {
+                int weight = 1; // baseline
+
+                // Example heuristics:
+                if (board.IsCapture(move)) weight += 3;
+                if (board.GivesCheck(move) && !board.IsCapture(move))
+                    weight += 1; // prefer capture-checks, but not spam pointless checks
+
+                int piece = board.GetMovingPiece(move);
+                int targetSquare = board.GetTargetSquare(move);
+
+                // Knights and bishops developing early
+                if (piece == Piece.KNIGHT || piece == Piece.BISHOP)
+                {
+                    int rank = targetSquare / 8;
+                    int file = targetSquare % 8;
+                    if (file >= 2 && file <= 5 && rank >= 2 && rank <= 5)
+                        weight += 2; // towards center
+                }
+
+                // Pawn moves towards center
+                if (piece == Piece.PAWN)
+                {
+                    int rank = targetSquare / 8;
+                    int file = targetSquare % 8;
+
+                    // Encourage opening pawns in rank 2/7
+                    if ((board.SideToMove == Piece.WHITE && rank == 3) ||
+                        (board.SideToMove == Piece.BLACK && rank == 4))
+                        weight += 1;
+
+                    // Extra for central files
+                    if (file == 3 || file == 4)
+                        weight += 1;
+                }
+
+                weightedMoves.Add((move, weight));
+            }
+
+            // Pick move by weighted random
+            int totalWeight = 0;
+            foreach (var wm in weightedMoves)
+                totalWeight += wm.weight;
+
+            int roll = random.Next(totalWeight);
+            foreach (var wm in weightedMoves)
+            {
+                if (roll < wm.weight)
+                    return wm.move;
+                roll -= wm.weight;
+            }
+
+            // Fallback
+            return legalMoves[random.Next(legalMoves.Count)];
         }
 
         /// <summary>
