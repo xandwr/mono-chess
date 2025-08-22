@@ -1,6 +1,5 @@
 using Godot;
 using System.Collections.Generic;
-using MonoChess.Chess.GUI;
 
 namespace MonoChess.Chess.GUI
 {
@@ -13,23 +12,15 @@ namespace MonoChess.Chess.GUI
         private RichTextLabel descriptionLabel;
         private BoardView boardView;
 
-        private class ShopItem
+        private class ShopItem(string name, int cost, string description, System.Action onPurchase = null)
         {
-            public string Name;
-            public int Cost;
-            public string Description;
-            public System.Action OnPurchase;
-
-            public ShopItem(string name, int cost, string description, System.Action onPurchase = null)
-            {
-                Name = name;
-                Cost = cost;
-                Description = description;
-                OnPurchase = onPurchase;
-            }
+            public string Name = name;
+            public int Cost = cost;
+            public string Description = description;
+            public System.Action OnPurchase = onPurchase;
         }
 
-        private List<ShopItem> shopItems = new List<ShopItem>();
+        private List<ShopItem> shopItems = [];
 
         public override void _Ready()
         {
@@ -60,28 +51,19 @@ namespace MonoChess.Chess.GUI
 
         private void InitializeShopItems()
         {
-            shopItems = new List<ShopItem>
-            {
-                new ShopItem("Reveal Best Move", 3,
+            shopItems = [
+                new("Reveal Best Move", 3,
                     "Shows you the objectively best move from your current position. Can only be used during your turn.",
                     () => RevealBestMove()),
 
-                new ShopItem("Show All Legal Moves", 2,
+                new("Show All Legal Moves", 2,
                     "Highlights all legal moves for all your pieces. Lasts for your entire turn.",
                     () => ShowAllLegalMoves()),
 
-                new ShopItem("Undo Last Move", 4,
+                new("Undo Last Move", 4,
                     "Undoes your last move and the opponent's response, letting you try a different approach.",
                     () => UndoLastMove()),
-
-                new ShopItem("Extended Thinking Time", 1,
-                    "Gives you 30 seconds of uninterrupted thinking time before the next AI move.",
-                    () => ExtendThinkingTime()),
-
-                new ShopItem("Prediction Hint", 2,
-                    "Shows which of the opponent's pieces are most likely to move next.",
-                    () => ShowPredictionHint())
-            };
+            ];
         }
 
         private void PopulateShop()
@@ -168,29 +150,29 @@ namespace MonoChess.Chess.GUI
         }
 
         // Shop item effects
-        private void RevealBestMove()
+        private static void RevealBestMove()
         {
             // This would integrate with a chess engine to show the best move
             // For now, just show a placeholder
             GD.Print("Best move analysis activated! (Feature needs chess engine integration)");
 
-            // You could implement this by:
+            // could implement this by:
             // 1. Running a deeper search with your AI
             // 2. Highlighting the recommended move
             // 3. Showing evaluation numbers
         }
 
-        private void ShowAllLegalMoves()
+        private static void ShowAllLegalMoves()
         {
             GD.Print("All legal moves highlighted! (Feature needs BoardView integration)");
 
-            // This could be implemented by:
+            // could be implemented by:
             // 1. Adding a "show all moves" flag to BoardView
             // 2. Generating moves for all pieces of current player
             // 3. Drawing highlights for all valid destinations
         }
 
-        private void UndoLastMove()
+        private static void UndoLastMove()
         {
             // This would need integration with BoardView's move history
             GD.Print("Undo move activated! (Feature needs move history integration)");
@@ -210,13 +192,10 @@ namespace MonoChess.Chess.GUI
             // 2. Showing a countdown timer
             // 3. Giving player time to think during AI turn
 
-            if (boardView != null)
-            {
-                boardView.SetAIThinkingTime(5.0f); // 5 seconds instead of 1
-            }
+            boardView?.SetAIThinkingTime(5.0f);
         }
 
-        private void ShowPredictionHint()
+        private static void ShowPredictionHint()
         {
             GD.Print("Prediction hint activated! (Feature needs AI evaluation integration)");
 
