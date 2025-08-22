@@ -1,5 +1,6 @@
 using Godot;
 using MonoChess.Chess.Core;
+using MonoChess.Chess.AI;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -11,6 +12,7 @@ namespace MonoChess.Chess.GUI
         [Signal] public delegate void MoveSoundEventHandler();
         [Signal] public delegate void CaptureSoundEventHandler();
         [Signal] public delegate void PlayerColorChangedEventHandler(int newPlayerColor);
+        [Signal] public delegate void GameOverEventHandler(string result);
 
         private Board board;
         private Vector2 squareSize = new Vector2(100, 100);
@@ -89,6 +91,12 @@ namespace MonoChess.Chess.GUI
         private AudioStreamPlayer moveSound = null;
         private AudioStreamPlayer captureSound = null;
 
+        // AI
+        private bool aiEnabled = true; // Set to true to enable AI opponent
+        private Timer aiMoveTimer;
+        private bool waitingForAI = false;
+
+
         public override void _Ready()
         {
             board = new Board();
@@ -97,6 +105,89 @@ namespace MonoChess.Chess.GUI
 
             moveSound = GetNode<AudioStreamPlayer>("MoveSound");
             captureSound = GetNode<AudioStreamPlayer>("CaptureSound");
+
+            // Setup AI timer
+            aiMoveTimer = new Timer();
+            aiMoveTimer.WaitTime = 1.0f; // 1 second delay for AI moves
+            aiMoveTimer.OneShot = true;
+            aiMoveTimer.Timeout += OnAITimerTimeout;
+            AddChild(aiMoveTimer);
+        }
+
+        private void OnAITimerTimeout()
+        {
+            waitingForAI = false;
+
+            if (board.SideToMove != playerColor && aiEnabled)
+            {
+                int aiMove = SimpleAI.GetRandomMove(board);
+
+                if (aiMove != -1)
+                {
+                    // Make the AI move
+                    int captured = Move.Captured(aiMove);
+                    board.MakeMove(aiMove);
+
+                    // Update last move highlighting
+                    lastMoveFrom = Move.From(aiMove);
+                    lastMoveTo = Move.To(aiMove);
+
+                    QueueRedraw();
+
+                    // Play appropriate sound
+                    if (captured != Piece.EMPTY)
+                    {
+                        EmitSignal(SignalName.CaptureSound);
+                        captureSound.Play();
+                    }
+                    else
+                    {
+                        EmitSignal(SignalName.MoveSound);
+                        moveSound.Play();
+                    }
+
+                    // Debug print
+                    GD.Print($"AI Move: {SquareToString(Move.From(aiMove))}{SquareToString(Move.To(aiMove))}");
+
+                    // Check for game over after AI move
+                    CheckForGameOver();
+                }
+                else
+                {
+                    // AI has no legal moves - game over
+                    CheckForGameOver();
+                }
+            }
+        }
+
+        private void CheckForGameOver()
+        {
+            if (SimpleAI.IsGameOver(board))
+            {
+                string result;
+                if (SimpleAI.IsCheckmate(board))
+                {
+                    int winner = 1 - board.SideToMove; // The side that just moved won
+                    result = winner == Piece.WHITE ? "White wins by checkmate!" : "Black wins by checkmate!";
+                }
+                else if (SimpleAI.IsStalemate(board))
+                {
+                    result = "Draw by stalemate!";
+                }
+                else
+                {
+                    result = "Game over!";
+                }
+
+                GD.Print(result);
+                EmitSignal(SignalName.GameOver, result);
+            }
+            else if (aiEnabled && board.SideToMove != playerColor && !waitingForAI)
+            {
+                // Start AI move timer if it's AI's turn
+                waitingForAI = true;
+                aiMoveTimer.Start();
+            }
         }
 
         private void LoadPieceTextures()
@@ -470,9 +561,11 @@ namespace MonoChess.Chess.GUI
                 }
 
                 // Debug print
-                GD.Print($"Move: {SquareToString(fromSquare)}{SquareToString(toSquare)}");
-            }
+                GD.Print($"Player Move: {SquareToString(fromSquare)}{SquareToString(toSquare)}");
 
+                // Check for game over and potentially trigger AI move
+                CheckForGameOver();
+            }
             else
             {
                 // Invalid move - clear selection
@@ -499,7 +592,16 @@ namespace MonoChess.Chess.GUI
             lastMoveTo = -1;
             isDragging = false;
             draggedFromSquare = -1;
+            waitingForAI = false;
+            aiMoveTimer.Stop();
             QueueRedraw();
+
+            // Start AI if it plays as white
+            if (aiEnabled && playerColor == Piece.BLACK)
+            {
+                waitingForAI = true;
+                aiMoveTimer.Start();
+            }
         }
 
         public void SwitchPlayerColor()
@@ -511,9 +613,14 @@ namespace MonoChess.Chess.GUI
             validMoves.Clear();
             isDragging = false;
             draggedFromSquare = -1;
+            waitingForAI = false;
+            aiMoveTimer.Stop();
 
             GD.Print($"Player now playing as: {(playerColor == Piece.WHITE ? "White" : "Black")}");
             QueueRedraw();
+
+            // Check if AI should move immediately
+            CheckForGameOver();
         }
 
         public Board GetBoard()
@@ -531,6 +638,25 @@ namespace MonoChess.Chess.GUI
             isDragging = false;
             draggedFromSquare = -1;
             QueueRedraw();
+        }
+
+        public void EnableAI(bool enabled)
+        {
+            aiEnabled = enabled;
+
+            if (enabled && board.SideToMove != playerColor && !waitingForAI)
+            {
+                // Start AI move if it's AI's turn
+                waitingForAI = true;
+                aiMoveTimer.Start();
+            }
+
+            GD.Print($"AI {(enabled ? "enabled" : "disabled")}");
+        }
+
+        public void SetAIThinkingTime(float seconds)
+        {
+            aiMoveTimer.WaitTime = seconds;
         }
     }
 }
