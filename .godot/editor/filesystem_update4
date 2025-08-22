@@ -8,3 +8,4 @@ res://Chess/GUI/BoardView.cs
 res://Scripts/board_view.gd
 res://Scripts/piece_view.gd
 res://piece_view.tscn
+res://Chess/GUI/DebugPanel.cs

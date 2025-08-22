@@ -1,3 +1,9 @@
+Button
+MarginContainer
+Label
+VBoxContainer
+HBoxContainer
+PanelContainer
 Node
 AudioStreamPlayer
 Control
